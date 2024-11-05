@@ -1,0 +1,71 @@
+Prerequisites
+1.	Both nodes need Docker installed.
+2.	Ensure both nodes have kubeadm, kubelet, and kubectl installed.
+3.	The script should be run on the master and worker nodes with root privileges.
+Step 1: Run the following script on both nodes (Master and Worker) for the initial setup
+#!/bin/bash
+    sudo apt-get update -y && sudo apt-get upgrade -y
+# Disable swap
+    sudo swapoff -a
+    sudo sed -i '/ swap / s/^/#/' /etc/fstab
+# Enable time-sync with an NTP server
+    sudo apt install systemd-timesyncd
+    sudo timedatectl set-ntp true
+# Install required packages for Kubernetes
+    sudo apt-get install -y apt-transport-https ca-certificates curl
+# Add Kubernetes' official GPG key and repo
+    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add –
+    echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+# Install kubeadm, kubelet, and kubectl
+    sudo apt-get update -y
+    sudo apt-get install -y kubelet kubeadm kubectl
+    sudo apt-mark hold kubelet kubeadm kubectl
+# Enable IP forwarding
+    echo "net.bridge.bridge-nf-call-iptables=1" | sudo tee -a /etc/sysctl.conf
+    echo "net.bridge.bridge-nf-call-ip6tables=1" | sudo tee -a /etc/sysctl.conf
+   sudo sysctl –system
+Step 2: Run the following command on the Master node only
+#!/bin/bash
+ # Initialize the Kubernetes master node
+   sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+
+# Set up kubeconfig for the master node's kubectl access
+   mkdir -p $HOME/.kube
+   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+   sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+# Apply a network plugin (Calico in this example)
+   kubectl apply -f https://docs.projectcalico.org/v3.14/manifests/calico.yaml
+
+# Get the kubeadm join command with the token and hash to join the worker node
+   echo "Use the following command on the worker node to join the cluster:"
+   sudo kubeadm token create --print-join-command
+Step 3: Run the output from the above command on the Worker node
+
+
+
+Steps for Installing Minikube on Linux
+1.	Install Minikube:
+# Download the latest version of Minikube
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+
+# Install the Minikube binary to /usr/local/bin
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+2.	Install kubectl:
+# Download kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+# Install kubectl to /usr/local/bin and make it executable
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+3.	Start Minikube:
+# Start Minikube with Docker as the driver
+minikube start --driver=docker
+
+minikube status
+4.	Use kubectl to Interact with Minikube:
+Minikube configures kubectl automatically to use the Minikube cluster context.
+# Get cluster information
+kubectl cluster-info
+
+# List all nodes in the cluster
+kubectl get nodes
